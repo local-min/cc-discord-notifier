@@ -149,7 +149,12 @@ def post_embed(
                 resp = client.post(webhook_url, json=payload)
             except httpx.HTTPError as e:
                 last_exc = e
-                logger.warning("Discord Webhook 失敗 (attempt %d): %s", attempt, e)
+                # 例外オブジェクトは URL を含み得るため例外クラス名のみログ出力する。
+                # webhook URL はパス部にトークンを保持しており、public リポジトリの
+                # Actions ログへ流出すれば投稿権限が奪取されるため。
+                logger.warning(
+                    "Discord Webhook 失敗 (attempt %d): %s", attempt, type(e).__name__
+                )
             else:
                 if resp.status_code == 429:
                     retry_after = float(resp.headers.get("Retry-After", "1") or 1)

@@ -25,7 +25,9 @@ def _request_with_retry(client: httpx.Client, url: str, params: dict) -> httpx.R
             resp = client.get(url, params=params)
         except httpx.HTTPError as e:
             last_exc = e
-            logger.warning("GitHub API リクエスト失敗 (attempt %d): %s", attempt, e)
+            logger.warning(
+                "GitHub API リクエスト失敗 (attempt %d): %s", attempt, type(e).__name__
+            )
         else:
             if resp.status_code < 500:
                 resp.raise_for_status()
