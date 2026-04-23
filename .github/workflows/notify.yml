@@ -1,0 +1,60 @@
+name: notify
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Discord 投稿をスキップして動作確認だけ行う"
+        required: false
+        default: "false"
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Run notifier
+        env:
+          GITHUB_PAT: ${{ secrets.CC_GITHUB_PAT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: uv run python -m notifier.main
+
+      - name: Commit state changes
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- state.json; then
+            echo "state.json に変更なし"
+            exit 0
+          fi
+          tag=$(python -c 'import json; print(json.load(open("state.json")).get("last_tag_name") or "unknown")')
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git commit -m "chore(state): update last_release_id to ${tag}"
+          git push
