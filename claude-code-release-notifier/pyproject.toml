@@ -1,5 +1,5 @@
 [project]
-name = "cc-discord-notifier"
+name = "claude-code-release-notifier"
 version = "0.1.0"
 description = "Claude Code のリリース情報を Discord へ日本語配信するワークフロー"
 readme = "README.md"

@@ -1,39 +1,42 @@
 # cc-discord-notifier
 
-Anthropic の [Claude Code](https://github.com/anthropics/claude-code) の新リリースを GitHub Actions で毎時監視し、新機能と Breaking Change のみを Gemini 2.5 Flash で日本語化して Discord チャンネルへ配信するワークフロー。
+Claude 関連の通知を Discord チャンネルへ日本語で配信するためのリポジトリ。
+目的・配信元・デプロイ先の異なる **2 つのサブプロジェクト** を同居させている。
+各サブプロジェクトの詳細は、それぞれの README を参照。
 
-詳細な設計は [`doc/claude-code-discord-notifier-spec.md`](doc/claude-code-discord-notifier-spec.md) を参照。
+## サブプロジェクト
 
-## 動作概要
+| サブプロジェクト | 配信元 | 方式 / デプロイ先 | README |
+| --- | --- | --- | --- |
+| **claude-code-release-notifier** | `anthropics/claude-code` の GitHub Releases | ポーリング（GitHub Actions・毎時 cron） | [README](claude-code-release-notifier/README.md) |
+| **claude-status-discord** | `status.claude.com`（Statuspage）の障害・メンテナンス | Webhook プッシュ（Cloudflare Python Workers） | [README](claude-status-discord/README.md) |
 
-- 毎時 0 分 (UTC) に GitHub Actions が `notifier.main` を実行
-- `anthropics/claude-code` の Releases API を `state.json` の `last_release_id` より新しいものに限定して取得
-- 本文を行単位の正規表現でパースし、`Added` と `Breaking`/`Removed`/`Deprecated` を抽出、その他は件数のみ集計
-- Gemini 2.5 Flash に対し `thinking_budget=0` / 構造化出力で項目をバッチ翻訳
-- Discord Webhook へ Embed 形式で投稿 (Breaking: 赤、新機能のみ: 緑、それ以外: 灰)
-- 配信成功したリリースごとに `state.json` を更新し `git commit && git push`
-- 週次 `keepalive` ワークフローで 60 日非アクティブ停止を防止
+両者はアーキテクチャもデプロイ先も独立しており、相互に依存しない。
 
-## ローカルセットアップ
+## ディレクトリ構成
 
-```bash
-uv sync
-uv run pytest
-uv run ruff check .
+```
+cc-discord-notifier/
+├── README.md                       # 本ファイル（リポジトリ全体の入口）
+├── .github/workflows/              # GitHub Actions（仕様上リポジトリ直下に固定）
+│   ├── notify.yml                  # claude-code-release-notifier を毎時実行
+│   └── keepalive.yml               # 60 日非アクティブ停止の回避
+│
+├── claude-code-release-notifier/   # サブプロジェクト1: リリース配信（Python / GitHub Actions）
+│   ├── README.md
+│   ├── pyproject.toml
+│   ├── state.json                  # 処理済みリリースの状態
+│   ├── doc/claude-code-discord-notifier-spec.md
+│   ├── src/notifier/
+│   └── tests/
+│
+└── claude-status-discord/          # サブプロジェクト2: Statuspage 転送（Cloudflare Worker）
+    ├── README.md
+    ├── wrangler.jsonc
+    ├── doc/claude-status-to-discord-guide.md
+    ├── src/                        # entry.py / transform.py
+    └── tests/
 ```
 
-## 必要な GitHub Actions Secrets
-
-| 名前 | 内容 |
-| --- | --- |
-| `CC_GITHUB_PAT` | `anthropics/claude-code` の Releases 読取用 Fine-grained PAT (Public Repositories read-only) |
-| `GEMINI_API_KEY` | Google AI Studio で発行した Gemini API キー |
-| `DISCORD_WEBHOOK_URL` | 配信先 Discord チャンネルの Webhook URL |
-
-> 備考: Secrets 名に `GITHUB_` プレフィックスは予約語のため使用できないので、PAT 側を `CC_GITHUB_PAT` として登録する。アプリ側は `GITHUB_PAT` 環境変数で受ける。
-
-## 運用
-
-- 初回実行 (`state.json` が空) は遡及配信を避けるため最新 1 件のみを処理済としてマーク
-- 失敗時は `state.json` を更新せず、次回実行で同じリリースを再処理
-- 1 リリース成功 → 即 state 更新 → commit のリリース単位トランザクション
+> 補足: GitHub Actions のワークフローはリポジトリ直下の `.github/workflows/` に置く必要があるため、
+> `notify.yml` は `claude-code-release-notifier/` を作業ディレクトリとして実行する設定にしている。

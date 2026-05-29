@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "claude-status-discord",
+  "main": "src/entry.py",
+  "compatibility_flags": ["python_workers"],
+  "compatibility_date": "2026-05-29",
+  "observability": { "enabled": true },
+  "vars": {
+    "MIN_IMPACT": "none",
+    "FORWARD_COMPONENTS": "true"
+    // CRITICAL_ROLE_ID は必要なら追加（例: "123456789012345678"）
+    // DISCORD_WEBHOOK_URL / RELAY_SECRET は vars に書かず `wrangler secret put` で登録する
+  }
+}
