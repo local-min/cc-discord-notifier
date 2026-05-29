@@ -44,10 +44,16 @@ uv run --with pytest pytest tests/
 
 ## ローカル Worker 起動
 
+前提: **uv ≥ 0.8.10** と **Node.js**（`pywrangler` が内部で `npx wrangler` を呼ぶ）。
+古い uv の場合は `uv self update` で更新する。
+
+> CLI の実行ファイル名は `pywrangler`。`uvx --from workers-py pywrangler <subcommand>` で呼ぶ
+> （`uvx workers-py ...` は実行ファイルが無くエラーになる）。
+
 ```bash
 cd claude-status-discord
 cp .dev.vars.example .dev.vars   # 値を埋める
-uvx workers-py dev
+uvx --from workers-py pywrangler dev --port 8787
 ```
 
 疎通テスト（別ターミナル）:
@@ -71,9 +77,9 @@ Discord に Embed が届けば成功。シークレットを誤った URL では
 ## デプロイ
 
 ```bash
-uvx workers-py secret put DISCORD_WEBHOOK_URL
-uvx workers-py secret put RELAY_SECRET        # 例: openssl rand -hex 24
-uvx workers-py deploy
+uvx --from workers-py pywrangler secret put DISCORD_WEBHOOK_URL
+uvx --from workers-py pywrangler secret put RELAY_SECRET        # 例: openssl rand -hex 24
+uvx --from workers-py pywrangler deploy
 ```
 
 > `compatibility_date` はデプロイ時点の日付に更新する（未来日にしない）。

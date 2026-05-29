@@ -10,3 +10,8 @@ __pycache__/
 .ruff_cache/
 .dev.vars
 claude-status-discord/.dev.vars
+
+# Cloudflare Python Workers (pywrangler / wrangler) のローカル生成物
+.venv-workers/
+python_modules/
+.wrangler/
