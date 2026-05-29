@@ -20,7 +20,9 @@ class Default(WorkerEntrypoint):
         # --- 2. JSON解析（JS Proxy → Python dict） ---
         try:
             js_body = await request.json()
-            event = js_body.to_py()  # Pyodide: JsProxy -> dict
+            # ランタイムにより request.json() は dict を返すことも JsProxy を返すこともある。
+            # JsProxy のときだけ .to_py() で Python dict に変換する。
+            event = js_body.to_py() if hasattr(js_body, "to_py") else js_body
         except Exception:
             # 解析不能でも200を返し、Statuspageのリトライ嵐を避ける
             return Response("Bad payload", status=200)

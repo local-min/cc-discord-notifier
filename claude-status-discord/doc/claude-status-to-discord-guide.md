@@ -272,7 +272,9 @@ class Default(WorkerEntrypoint):
         # --- 2. JSON解析（JS Proxy → Python dict） ---
         try:
             js_body = await request.json()
-            event = js_body.to_py()  # Pyodide: JsProxy -> dict
+            # ランタイムにより request.json() は dict を返すことも JsProxy を返すこともある。
+            # JsProxy のときだけ .to_py() で変換する（dict に .to_py() を呼ぶと AttributeError）。
+            event = js_body.to_py() if hasattr(js_body, "to_py") else js_body
         except Exception:
             # 解析不能でも200を返し、Statuspageのリトライ嵐を避ける
             return Response("Bad payload", status=200)
@@ -337,7 +339,7 @@ class Default(WorkerEntrypoint):
 ### 4.1 事前準備
 
 1. Cloudflare アカウントを用意します（無料プランで可）。
-2. ローカルに **uv** と **Node.js** をインストールします（Python Workers のツール `pywrangler` が両者を必要とします）。
+2. ローカルに **uv（≥ 0.8.10）** と **Node.js** をインストールします（Python Workers のツール `pywrangler` が両者を必要とします）。uv が古いと `pywrangler` が「uv version at least 0.8.10 required」で停止するため、`uv self update` で更新します。
 
 ### 4.2 Discord 側で Webhook URL を発行
 
@@ -347,24 +349,26 @@ class Default(WorkerEntrypoint):
 
 ### 4.3 プロジェクト作成とデプロイ
 
+`workers-py` パッケージが提供する実行ファイルは **`pywrangler`** です。`uvx --from workers-py pywrangler <subcommand>` の形で呼びます（`uvx workers-py ...` は実行ファイルが見つからずエラーになります）。
+
 ```bash
-# Python Workers用CLI（uvが管理）でプロジェクト初期化
-uvx workers-py init claude-status-discord
+# Python Workers用CLIでプロジェクト初期化
+uvx --from workers-py pywrangler init claude-status-discord
 cd claude-status-discord
 # → src/entry.py, src/transform.py を本ガイドの内容に置き換え、wrangler.jsonc を編集
 
 # シークレットを登録（プロンプトに値を貼り付け）
-uvx workers-py secret put DISCORD_WEBHOOK_URL
-uvx workers-py secret put RELAY_SECRET        # 例: openssl rand -hex 24 で生成した文字列
+uvx --from workers-py pywrangler secret put DISCORD_WEBHOOK_URL
+uvx --from workers-py pywrangler secret put RELAY_SECRET        # 例: openssl rand -hex 24 で生成した文字列
 
 # ローカル動作確認
-uvx workers-py dev
+uvx --from workers-py pywrangler dev --port 8787
 
 # 本番デプロイ
-uvx workers-py deploy
+uvx --from workers-py pywrangler deploy
 ```
 
-> `pywrangler`（`workers-py`）は内部で `wrangler` を呼び出します。コマンド名はバージョンで変わることがあるため、最新の手順は Cloudflare の Python Workers ドキュメントで確認してください。Python Workers は現在オープンベータです。
+> `pywrangler` は内部で `npx wrangler` を呼び出します。コマンド名・サブコマンドはバージョンで変わることがあるため、最新の手順は Cloudflare の Python Workers ドキュメントで確認してください。Python Workers は現在オープンベータです。
 
 デプロイ後、Worker の公開 URL（例 `https://claude-status-discord.<account>.workers.dev`）に **パスを付けた** ものが Statuspage に登録する URL になります。
 
