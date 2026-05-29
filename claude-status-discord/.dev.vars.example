@@ -1,0 +1,11 @@
+# ローカル開発用シークレットのひな型。
+# `cp .dev.vars.example .dev.vars` して値を埋める（.dev.vars は .gitignore 対象）。
+
+# 配信先 Discord チャンネルの Webhook URL
+DISCORD_WEBHOOK_URL=
+
+# エンドポイント保護用のランダム文字列（例: openssl rand -hex 24）
+RELAY_SECRET=
+
+# 任意: critical インシデント時にメンションするロール ID
+# CRITICAL_ROLE_ID=

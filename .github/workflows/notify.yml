@@ -21,6 +21,10 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        # リリース通知はサブプロジェクト配下で実行する
+        working-directory: claude-code-release-notifier
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: "claude-code-release-notifier/uv.lock"
 
       - name: Set up Python
         run: uv python install 3.12

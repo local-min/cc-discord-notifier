@@ -1,0 +1,16 @@
+[project]
+name = "claude-status-discord"
+version = "0.1.0"
+description = "status.claude.com の Statuspage Webhook を Discord へ転送する Cloudflare Python Worker"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
