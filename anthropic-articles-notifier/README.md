@@ -1,6 +1,6 @@
 # anthropic-articles-notifier
 
-[claude.dev](https://claude.dev/) のブログと [Anthropic Research](https://www.anthropic.com/research) の新着記事を GitHub Actions で毎時チェックし、タイトルと概要を Gemini 2.5 Flash で日本語にして Discord チャンネルへ配信するワークフロー。
+[claude.dev](https://claude.dev/) のブログと [Anthropic Research](https://www.anthropic.com/research) の新着記事を GitHub Actions で毎時チェックし、タイトルと概要を Claude Haiku 5.5（`claude-haiku-5-5`）で日本語にして Discord チャンネルへ配信するワークフロー。
 
 > このサブプロジェクトは GitHub Actions（`.github/workflows/articles.yml`、リポジトリ直下）から
 > `anthropic-articles-notifier/` を作業ディレクトリとして実行される。
@@ -38,12 +38,10 @@ Anthropic Research で一覧ページ（`/research`）を使わないのは、�
 
 ## 必要な GitHub Actions Secrets
 
-リリース通知（`claude-code-release-notifier`）と同じものを使う。追加の登録は不要。
-
 | 名前 | 内容 |
 | --- | --- |
-| `GEMINI_API_KEY` | Google AI Studio で発行した Gemini API キー |
-| `DISCORD_WEBHOOK_URL` | 配信先 Discord チャンネルの Webhook URL |
+| `ANTHROPIC_API_KEY` | Claude API キー（Claude Console で発行）。翻訳に使う |
+| `DISCORD_WEBHOOK_URL` | 配信先 Discord チャンネルの Webhook URL（リリース通知と共用） |
 
 ## 手動実行
 
@@ -54,7 +52,7 @@ Actions タブの `articles` ワークフローから `workflow_dispatch` で実
 | `dry_run` | Discord に投稿せず、`state.json` も保存しない。ログに Embed を出す |
 | `preview` | 既読かどうかに関係なく、各配信元の先頭 1 件（claude.dev は最新記事、Research は最近更新された記事）を処理する。`state.json` は更新しない。`dry_run` と組み合わせると翻訳結果の確認だけができ、外すと実際に投稿して見た目を確認できる |
 
-PR では `pytest` と、`dry_run` + `preview` での実行が自動で走る。配信元サイトの構成変更や Gemini の応答形式の変化に、マージ前に気づくため。
+PR では `pytest` と、`dry_run` + `preview` での実行が自動で走る。配信元サイトの構成変更や Claude API の応答形式の変化に、マージ前に気づくため。
 
 ## ローカルセットアップ
 
@@ -64,7 +62,7 @@ uv run pytest
 uv run ruff check .
 
 # 実データでの確認（投稿なし・state 保存なし）
-GEMINI_API_KEY=... DRY_RUN=true PREVIEW=true uv run python -m articles_notifier.main
+ANTHROPIC_API_KEY=... DRY_RUN=true PREVIEW=true uv run python -m articles_notifier.main
 ```
 
 ## 配信元の追加

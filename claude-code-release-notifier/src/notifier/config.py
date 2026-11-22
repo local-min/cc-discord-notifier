@@ -15,11 +15,13 @@ class Config:
     """ワークフロー実行に必要な設定値。"""
 
     github_pat: str
-    gemini_api_key: str
+    anthropic_api_key: str
     discord_webhook_url: str
     target_repo: str = "anthropics/claude-code"
     state_path: str = "state.json"
     dry_run: bool = False
+    # 既読に関係なく最新リリースを 1 件処理し、state は更新しない（動作確認用）
+    preview: bool = False
 
     @classmethod
     def from_env(cls) -> Config:
@@ -32,7 +34,7 @@ class Config:
             return value
 
         github_pat = _require("GITHUB_PAT")
-        gemini_api_key = _require("GEMINI_API_KEY")
+        anthropic_api_key = _require("ANTHROPIC_API_KEY")
         discord_webhook_url = _require("DISCORD_WEBHOOK_URL")
 
         if missing:
@@ -42,9 +44,10 @@ class Config:
 
         return cls(
             github_pat=github_pat,
-            gemini_api_key=gemini_api_key,
+            anthropic_api_key=anthropic_api_key,
             discord_webhook_url=discord_webhook_url,
             target_repo=os.environ.get("TARGET_REPO", "anthropics/claude-code"),
             state_path=os.environ.get("STATE_PATH", "state.json"),
             dry_run=os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"},
+            preview=os.environ.get("PREVIEW", "").lower() in {"1", "true", "yes"},
         )

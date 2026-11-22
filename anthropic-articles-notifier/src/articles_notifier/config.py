@@ -18,7 +18,7 @@ def _flag(name: str) -> bool:
 class Config:
     """ワークフロー実行に必要な設定値。"""
 
-    gemini_api_key: str
+    anthropic_api_key: str
     discord_webhook_url: str
     state_path: str = "state.json"
     # 公開日がこの日数より古い未知の記事は、通知せず既読扱いにする
@@ -42,7 +42,7 @@ class Config:
                 missing.append(name)
             return value
 
-        gemini_api_key = _require("GEMINI_API_KEY")
+        anthropic_api_key = _require("ANTHROPIC_API_KEY")
         # dry run では投稿しないため Webhook URL は任意
         discord_webhook_url = _require("DISCORD_WEBHOOK_URL", required=not dry_run)
 
@@ -55,7 +55,7 @@ class Config:
             raise ConfigError("MAX_AGE_DAYS は整数で指定してください") from e
 
         return cls(
-            gemini_api_key=gemini_api_key,
+            anthropic_api_key=anthropic_api_key,
             discord_webhook_url=discord_webhook_url,
             state_path=os.environ.get("STATE_PATH", "state.json"),
             max_age_days=max_age_days,

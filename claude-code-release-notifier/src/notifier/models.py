@@ -41,7 +41,7 @@ class State(BaseModel):
 
 
 class TranslationResponse(BaseModel):
-    """Gemini から受領する翻訳結果の構造。"""
+    """Claude から構造化出力で受け取る翻訳結果の構造。"""
 
     translations: list[str] = Field(
         description=(

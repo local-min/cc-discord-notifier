@@ -32,7 +32,7 @@ class State(BaseModel):
 
 
 class ArticleTranslation(BaseModel):
-    """Gemini から受け取る翻訳結果の構造。"""
+    """Claude から構造化出力で受け取る翻訳結果。"""
 
     title_ja: str = Field(description="記事タイトルの日本語訳")
     summary_ja: str = Field(description="概要の日本語訳。入力の概要が空の場合は空文字")

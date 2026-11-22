@@ -1,4 +1,4 @@
-"""summarizer のテスト。Gemini SDK はフェイクで差し替える。"""
+"""summarizer のテスト。Anthropic SDK はフェイクで差し替える。"""
 
 from __future__ import annotations
 
@@ -7,40 +7,63 @@ from types import SimpleNamespace
 import pytest
 
 from articles_notifier.models import Article, ArticleTranslation
-from articles_notifier.summarizer import TranslationError, new_client, translate_article
+from articles_notifier.summarizer import (
+    EFFORT,
+    MODEL,
+    TranslationError,
+    new_client,
+    translate_article,
+)
 
 ARTICLE = Article(url="https://x/a", title="How we build agents", summary="A short summary.")
 
 
-class _FakeModels:
+class _FakeMessages:
     def __init__(self, response) -> None:
         self._response = response
         self.calls: list[dict] = []
 
-    def generate_content(self, **kwargs):
+    def parse(self, **kwargs):
         self.calls.append(kwargs)
         return self._response
 
 
 class _FakeClient:
     def __init__(self, response) -> None:
-        self.models = _FakeModels(response)
+        self.messages = _FakeMessages(response)
 
 
-def _response(title_ja: str, summary_ja: str, finish: str = "STOP") -> SimpleNamespace:
+def _response(
+    title_ja: str | None,
+    summary_ja: str = "",
+    stop_reason: str = "end_turn",
+    category: str | None = None,
+) -> SimpleNamespace:
+    parsed = (
+        None if title_ja is None else ArticleTranslation(title_ja=title_ja, summary_ja=summary_ja)
+    )
+    stop_details = SimpleNamespace(category=category) if stop_reason == "refusal" else None
     return SimpleNamespace(
-        parsed=ArticleTranslation(title_ja=title_ja, summary_ja=summary_ja),
-        candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name=finish))],
+        parsed_output=parsed,
+        stop_reason=stop_reason,
+        stop_details=stop_details,
+        _request_id="req_test",
     )
 
 
-def test_translate_ok() -> None:
+def test_translate_ok_and_request_shape() -> None:
     client = _FakeClient(_response(" agent の作り方 ", "短い概要。"))
     result = translate_article(client, ARTICLE)
     assert result == ArticleTranslation(title_ja="agent の作り方", summary_ja="短い概要。")
-    prompt = client.models.calls[0]["contents"]
-    assert "How we build agents" in prompt
-    assert "A short summary." in prompt
+
+    call = client.messages.calls[0]
+    assert call["model"] == MODEL == "claude-haiku-5-5"
+    assert call["output_format"] is ArticleTranslation
+    assert call["output_config"] == {"effort": EFFORT}
+    # Haiku 5.5 はサンプリング指定で 400 になるため送らない
+    assert not {"temperature", "top_p", "top_k"} & call.keys()
+    assert "How we build agents" in call["messages"][0]["content"]
+    assert "A short summary." in call["messages"][0]["content"]
 
 
 def test_translate_allows_empty_summary_when_source_has_none() -> None:
@@ -49,32 +72,31 @@ def test_translate_allows_empty_summary_when_source_has_none() -> None:
     assert result.summary_ja == ""
 
 
+def test_translate_refusal_raises_with_category() -> None:
+    client = _FakeClient(_response(None, stop_reason="refusal", category="cyber"))
+    with pytest.raises(TranslationError, match="category=cyber"):
+        translate_article(client, ARTICLE)
+
+
 @pytest.mark.parametrize(
-    ("title_ja", "summary_ja", "finish"),
+    ("response"),
     [
-        ("", "概要", "STOP"),  # タイトルが空
-        ("タイトル", "", "STOP"),  # 概要があるのに訳が空
-        ("タイトル", "概要", "MAX_TOKENS"),  # 途中で打ち切られた
-        ("`flag の説明", "概要", "STOP"),  # 閉じていないバッククォート
+        _response("タイトル", "概要", stop_reason="max_tokens"),  # 出力上限で打ち切り
+        _response(None),  # 構造化出力が取れない
+        _response("", "概要"),  # タイトルが空
+        _response("タイトル", ""),  # 概要があるのに訳が空
+        _response("`flag の説明", "概要"),  # 閉じていないバッククォート
     ],
 )
-def test_translate_rejects_bad_output(title_ja: str, summary_ja: str, finish: str) -> None:
-    with pytest.raises(TranslationError):
-        translate_article(_FakeClient(_response(title_ja, summary_ja, finish)), ARTICLE)
-
-
-def test_new_client_uses_v1beta(monkeypatch: pytest.MonkeyPatch) -> None:
-    # v1 では system_instruction が拒否されるため、v1beta を明示していることを確認する
-    from google import genai
-
-    captured: dict = {}
-    monkeypatch.setattr(genai, "Client", lambda **kwargs: captured.update(kwargs))
-    new_client("dummy-key")
-    assert captured["api_key"] == "dummy-key"
-    assert captured["http_options"].api_version == "v1beta"
-
-
-def test_translate_parse_failure() -> None:
-    response = SimpleNamespace(parsed=None, candidates=[])
+def test_translate_rejects_bad_output(response: SimpleNamespace) -> None:
     with pytest.raises(TranslationError):
         translate_article(_FakeClient(response), ARTICLE)
+
+
+def test_new_client_passes_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    import anthropic
+
+    captured: dict = {}
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kwargs: captured.update(kwargs))
+    new_client("dummy-key")
+    assert captured == {"api_key": "dummy-key"}

@@ -24,14 +24,14 @@ def _configure_logging() -> None:
 
 
 def _build_translations(
-    gemini_client,
+    claude_client,
     parsed: ParsedRelease,
 ) -> tuple[list[str], list[str]]:
     """Added/Breaking をバッチで一括翻訳し、分割して返す。"""
     combined = parsed.added + parsed.breaking
     if not combined:
         return [], []
-    translated = translate_release_items(gemini_client, combined)
+    translated = translate_release_items(claude_client, combined)
     added_ja = translated[: len(parsed.added)]
     breaking_ja = translated[len(parsed.added) :]
     return added_ja, breaking_ja
@@ -40,7 +40,7 @@ def _build_translations(
 def _process_release(
     release: GitHubRelease,
     config: Config,
-    gemini_client,
+    claude_client,
 ) -> None:
     """1 リリース分の配信処理。失敗時は例外を送出する。"""
     logger.info("処理開始: %s (id=%d)", release.tag_name, release.id)
@@ -53,7 +53,7 @@ def _process_release(
     )
 
     if parsed.added or parsed.breaking:
-        added_ja, breaking_ja = _build_translations(gemini_client, parsed)
+        added_ja, breaking_ja = _build_translations(claude_client, parsed)
     else:
         added_ja, breaking_ja = [], []
 
@@ -72,6 +72,9 @@ def run() -> int:
     except ConfigError as e:
         logger.error("設定エラー: %s", e)
         return 2
+
+    if config.preview:
+        return _preview_latest(config)
 
     state = load_state(config.state_path)
     logger.info("現在の state: %s", state.model_dump(mode="json"))
@@ -96,18 +99,36 @@ def run() -> int:
         _commit_state(config, latest)
         return 0
 
-    from google import genai
+    from .summarizer import new_client
 
-    gemini_client = genai.Client(api_key=config.gemini_api_key)
+    claude_client = new_client(config.anthropic_api_key)
 
     for release in releases:
         try:
-            _process_release(release, config, gemini_client)
+            _process_release(release, config, claude_client)
         except Exception as e:
             logger.exception("リリース処理に失敗: %s", e)
             return 1
         _commit_state(config, release)
 
+    return 0
+
+
+def _preview_latest(config: Config) -> int:
+    """最新リリースを 1 件、既読に関係なく処理する。state は読みも書きもしない。"""
+    from .summarizer import new_client
+
+    releases = fetch_releases(config.target_repo, config.github_pat, since_id=None)
+    if not releases:
+        logger.info("PREVIEW: リリースが見つからない")
+        return 0
+    latest = releases[-1]
+    logger.info("PREVIEW: 最新 %s を処理（state は更新しない）", latest.tag_name)
+    try:
+        _process_release(latest, config, new_client(config.anthropic_api_key))
+    except Exception as e:
+        logger.exception("リリース処理に失敗: %s", e)
+        return 1
     return 0
 
 
