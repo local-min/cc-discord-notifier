@@ -152,15 +152,15 @@ def run() -> int:
     for key, src in state.sources.items():
         logger.info("state: %s 既読 %d 件", key, len(src.seen))
 
-    gemini_client = None
+    claude_client = None
 
     def translate(article: Article) -> ArticleTranslation:
-        nonlocal gemini_client
+        nonlocal claude_client
         from .summarizer import new_client, translate_article
 
-        if gemini_client is None:
-            gemini_client = new_client(config.gemini_api_key)
-        return translate_article(gemini_client, article)
+        if claude_client is None:
+            claude_client = new_client(config.anthropic_api_key)
+        return translate_article(claude_client, article)
 
     def post(embed: dict) -> None:
         if config.dry_run:

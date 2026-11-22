@@ -57,12 +57,12 @@ jobs:
       - name: Test
         run: uv run pytest
 
-      # 配信元サイトの構成変更や Gemini の応答形式の変化にマージ前に気づくため。
+      # 配信元サイトの構成変更や Claude API の応答形式の変化にマージ前に気づくため。
       # fork からの PR には Secrets が渡らないので、同じリポジトリからの PR に限る
       - name: Preview with real data (dry run)
         if: github.event.pull_request.head.repo.full_name == github.repository
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: "true"
           PREVIEW: "true"
         run: uv run python -m articles_notifier.main
@@ -96,7 +96,7 @@ jobs:
 
       - name: Run notifier
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
           PREVIEW: ${{ inputs.preview && 'true' || 'false' }}

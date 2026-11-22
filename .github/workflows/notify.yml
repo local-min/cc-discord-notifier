@@ -11,6 +11,10 @@ on:
         description: "Discord 投稿をスキップして動作確認だけ行う"
         required: false
         default: "false"
+      preview:
+        description: "既読に関係なく最新リリースを 1 件処理する（state.json は更新しない）"
+        required: false
+        default: "false"
 
 concurrency:
   group: notify
@@ -49,9 +53,10 @@ jobs:
       - name: Run notifier
         env:
           GITHUB_PAT: ${{ secrets.CC_GITHUB_PAT }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PREVIEW: ${{ github.event.inputs.preview || 'false' }}
         run: uv run python -m notifier.main
 
       # 複数リリースのうち途中で失敗しても、配信済みリリースの state は保存する（二重投稿を防ぐ）
