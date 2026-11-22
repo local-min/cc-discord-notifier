@@ -39,7 +39,7 @@ Cloudflare Workers は、Cron Triggers による定期実行が無料プラン�
 
 GitHub Actions のスケジュール実行は、60 日間リポジトリ側にアクティビティがない場合に自動停止する仕様がある。本システムにおいては、新規リリース検知時に状態ファイル（`state.json`）をリポジトリへコミットする設計としているため、Claude Code の現在のリリース頻度（1 日 1 回から 3 回）が継続する限り、この仕様に抵触することは実質的に発生しない。
 
-ただし万一の Claude Code 側のリリース停止や長期休暇期間に備えた保険として、週次で空コミットを打つ別ワークフロー（keepalive）を併設する。この二段構えにより、運用者の手動介入なしに恒久的な自動実行を保証する。
+ただし万一の Claude Code 側のリリース停止や長期休暇期間に備えた保険として、週次で最終コミット日を確認し、45 日以上コミットがない場合に限り空コミットを打つ別ワークフロー（keepalive）を併設する。この二段構えにより、運用者の手動介入なしに恒久的な自動実行を保証する。
 
 ### 2.4 要約・翻訳エンジンの選定
 
@@ -57,7 +57,7 @@ Flash を Flash-Lite に対して選定する判断の根拠は次の通りで�
 flowchart TB
     subgraph GH["GitHub Actions (毎時実行)"]
         direction TB
-        T[Cron Trigger<br/>0 * * * * UTC] --> M[main.py]
+        T[Cron Trigger<br/>23 * * * * UTC] --> M[main.py]
         M --> S1[state.json 読込]
         S1 --> GHC[GitHub Releases API<br/>取得]
         GHC --> DIFF{新規リリース<br/>あり?}
@@ -95,7 +95,7 @@ sequenceDiagram
     participant GM as Gemini API
     participant DC as Discord Webhook
 
-    CR->>APP: 毎時 0 分に起動
+    CR->>APP: 毎時 23 分に起動
     APP->>STT: last_release_id 読込
     APP->>GH: GET /repos/anthropics/claude-code/releases
     GH-->>APP: リリース一覧 (JSON)
@@ -444,9 +444,9 @@ Actions ワークフロー内で `git push` を行うため、デフォルトで
 
 ### 9.1 実行スケジュール
 
-メインワークフロー（`notify.yml`）は `cron: '0 * * * *'`（UTC、毎時 0 分）で実行する。Claude Code のリリースが世界時間のどの時間帯に発生しても概ね 1 時間以内には検知・配信される粒度である。配信のリアルタイム性を重視するため、日次ダイジェスト方式は採用しない。
+メインワークフロー（`notify.yml`）は `cron: '23 * * * *'`（UTC、毎時 23 分）で実行する。Claude Code のリリースが世界時間のどの時間帯に発生しても概ね 1 時間以内には検知・配信される粒度である。毎時 0 分を避けるのは、[GitHub 公式ドキュメント](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)が毎時 0 分を高負荷帯とし、`schedule` イベントの遅延・欠落が起き得ると明記しているためである（実際、`0 * * * *` 運用時の 2026 年 9〜11 月は想定回数の 15〜23% 程度しか実行されていなかった）。ランナーは 1 vCPU の `ubuntu-slim` を用いる。ジョブの実処理は十数秒であり、ジョブ上限 15 分に対して十分な余裕がある。配信のリアルタイム性を重視するため、日次ダイジェスト方式は採用しない。
 
-keepalive ワークフロー（`keepalive.yml`）は `cron: '0 0 * * 0'`（UTC、毎週日曜 0 時）で実行する。本ワークフローはリポジトリに対して空コミットを生成することで GitHub Actions の 60 日非アクティブ停止を防止する保険として機能する。通常運用下ではメインワークフローによる `state.json` 更新コミットが頻繁に発生するため、keepalive が実際に機能する場面は稀であるが、Claude Code のリリース停止期間などに備えて常設する。
+keepalive ワークフロー（`keepalive.yml`）は `cron: '41 3 * * 0'`（UTC、毎週日曜 3 時 41 分）で実行する。本ワークフローは最終コミットから 45 日以上経過している場合に限りリポジトリへ空コミットを生成することで GitHub Actions の 60 日非アクティブ停止を防止する保険として機能する。通常運用下ではメインワークフローによる `state.json` 更新コミットが頻繁に発生するため、keepalive が実際に機能する場面は稀であるが、Claude Code のリリース停止期間などに備えて常設する。
 
 ### 9.2 エラーハンドリング
 
@@ -477,7 +477,7 @@ GitHub API の未認証レート制限は毎時 60 リクエストであるが�
 | 情報源 | GitHub Releases API（`anthropics/claude-code`） |
 | 実行基盤 | GitHub Actions（Public リポジトリ） |
 | 言語および依存管理 | Python 3.12 + uv |
-| 実行頻度 | 毎時 0 分（UTC） |
+| 実行頻度 | 毎時 23 分（UTC）、`ubuntu-slim` ランナー |
 | 配信対象 | `Added`（新機能）および `Breaking` / `Removed` / `Deprecated` の本文配信。その他は件数のみ description に表示 |
 | 要約粒度 | 項目別の箇条書き翻訳をリリース単位でバッチ処理 |
 | 翻訳方針 | 固有の製品用語（MCP、hook、skill 等）は英語のまま保持 |

@@ -2,7 +2,9 @@ name: notify
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    # 毎時 0 分は GitHub 全体の高負荷帯で、schedule イベントが遅延・欠落しやすい
+    # （公式ドキュメント記載）。混雑を避けて毎時 23 分に実行する。
+    - cron: "23 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -19,7 +21,9 @@ permissions:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    # 実処理は十数秒の軽量ジョブのため 1 vCPU の ubuntu-slim で十分
+    # （git / Python 3.12 / Node 24 はプリインストール済み。ジョブ上限は 15 分）
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     defaults:
       run:
