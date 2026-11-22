@@ -2,7 +2,8 @@ name: keepalive
 
 on:
   schedule:
-    - cron: "0 0 * * 0"
+    # 毎時 0 分（特に日曜 0 時 UTC）は高負荷帯のため避ける
+    - cron: "41 3 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -10,15 +11,26 @@ permissions:
 
 jobs:
   keepalive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
-      - name: Push empty commit
+      - name: Push empty commit only if inactive
+        env:
+          # 60 日停止に対し、週次チェックの間隔（7 日）を見込んだ余裕を持たせる
+          INACTIVE_DAYS: "45"
         run: |
           set -euo pipefail
+          # 通常は notify の state.json コミットが活動として扱われるため、
+          # 直近コミットが新しければ空コミットは打たない
+          last=$(git log -1 --format=%ct)
+          days=$(( ($(date +%s) - last) / 86400 ))
+          if [ "$days" -lt "$INACTIVE_DAYS" ]; then
+            echo "直近コミットは ${days} 日前のため keepalive 不要"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit --allow-empty -m "chore(keepalive): prevent 60-day scheduler pause"

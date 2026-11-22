@@ -9,13 +9,13 @@ Anthropic の [Claude Code](https://github.com/anthropics/claude-code) の新リ
 
 ## 動作概要
 
-- 毎時 0 分 (UTC) に GitHub Actions が `notifier.main` を実行
+- 毎時 23 分 (UTC) に GitHub Actions（`ubuntu-slim` ランナー）が `notifier.main` を実行（毎時 0 分は高負荷で schedule が欠落しやすいため回避）
 - `anthropics/claude-code` の Releases API を `state.json` の `last_release_id` より新しいものに限定して取得
 - 本文を行単位の正規表現でパースし、`Added` と `Breaking`/`Removed`/`Deprecated` を抽出、その他は件数のみ集計
 - Gemini 2.5 Flash に対し `thinking_budget=0` / 構造化出力で項目をバッチ翻訳
 - Discord Webhook へ Embed 形式で投稿 (Breaking: 赤、新機能のみ: 緑、それ以外: 灰)
 - 配信成功したリリースごとに `state.json` を更新し `git commit && git push`
-- 週次 `keepalive` ワークフローで 60 日非アクティブ停止を防止
+- 週次 `keepalive` ワークフローで 60 日非アクティブ停止を防止（直近 45 日コミットがない場合のみ空コミット）
 
 ## ローカルセットアップ
 
