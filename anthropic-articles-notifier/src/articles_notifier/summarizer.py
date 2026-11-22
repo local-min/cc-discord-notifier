@@ -14,6 +14,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 MODEL = "gemini-2.5-flash"
+# google-genai 3.x は既定の API バージョンが v1 で、v1 では system_instruction が使えず
+# 400 "Developer instruction is not enabled for api version v1" になる。v1beta を明示する。
+API_VERSION = "v1beta"
+
+
+def new_client(api_key: str) -> genai.Client:
+    """翻訳に使う Gemini クライアントを作る。"""
+    from google import genai
+    from google.genai import types
+
+    return genai.Client(api_key=api_key, http_options=types.HttpOptions(api_version=API_VERSION))
+
 
 SYSTEM_INSTRUCTION = """\
 あなたは Anthropic 社のブログ記事・研究記事のタイトルと概要を日本語に翻訳する専門翻訳者です。日本の開発者・研究者が Discord の通知で一目で内容をつかめる、簡潔で自然な日本語にしてください。

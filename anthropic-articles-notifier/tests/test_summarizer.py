@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from articles_notifier.models import Article, ArticleTranslation
-from articles_notifier.summarizer import TranslationError, translate_article
+from articles_notifier.summarizer import TranslationError, new_client, translate_article
 
 ARTICLE = Article(url="https://x/a", title="How we build agents", summary="A short summary.")
 
@@ -61,6 +61,17 @@ def test_translate_allows_empty_summary_when_source_has_none() -> None:
 def test_translate_rejects_bad_output(title_ja: str, summary_ja: str, finish: str) -> None:
     with pytest.raises(TranslationError):
         translate_article(_FakeClient(_response(title_ja, summary_ja, finish)), ARTICLE)
+
+
+def test_new_client_uses_v1beta(monkeypatch: pytest.MonkeyPatch) -> None:
+    # v1 では system_instruction が拒否されるため、v1beta を明示していることを確認する
+    from google import genai
+
+    captured: dict = {}
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: captured.update(kwargs))
+    new_client("dummy-key")
+    assert captured["api_key"] == "dummy-key"
+    assert captured["http_options"].api_version == "v1beta"
 
 
 def test_translate_parse_failure() -> None:

@@ -156,12 +156,10 @@ def run() -> int:
 
     def translate(article: Article) -> ArticleTranslation:
         nonlocal gemini_client
-        from .summarizer import translate_article
+        from .summarizer import new_client, translate_article
 
         if gemini_client is None:
-            from google import genai
-
-            gemini_client = genai.Client(api_key=config.gemini_api_key)
+            gemini_client = new_client(config.gemini_api_key)
         return translate_article(gemini_client, article)
 
     def post(embed: dict) -> None:
