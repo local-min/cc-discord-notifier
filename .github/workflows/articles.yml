@@ -1,0 +1,128 @@
+name: articles
+
+on:
+  schedule:
+    # 毎時 0 分は GitHub 全体の高負荷帯で schedule が遅延・欠落しやすいため避け、
+    # notify（毎時 23 分）とも重ならない毎時 37 分に実行する
+    - cron: "37 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Discord に投稿せず、state.json も保存しない"
+        type: boolean
+        default: false
+      preview:
+        description: "既読かどうかに関係なく各配信元の先頭 1 件を処理する（state.json は更新しない）"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "anthropic-articles-notifier/**"
+      - ".github/workflows/articles.yml"
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('articles-pr-{0}', github.ref) || 'articles' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # PR: テストと、実データでの dry run（投稿・state 保存なし）
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: anthropic-articles-notifier
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: "anthropic-articles-notifier/uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run pytest
+
+      # 配信元サイトの構成変更や Gemini の応答形式の変化にマージ前に気づくため。
+      # fork からの PR には Secrets が渡らないので、同じリポジトリからの PR に限る
+      - name: Preview with real data (dry run)
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DRY_RUN: "true"
+          PREVIEW: "true"
+        run: uv run python -m articles_notifier.main
+
+  # 定期実行・手動実行: 新着記事を配信して state.json を commit する
+  run:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: anthropic-articles-notifier
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: "anthropic-articles-notifier/uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Run notifier
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+          PREVIEW: ${{ inputs.preview && 'true' || 'false' }}
+        run: uv run python -m articles_notifier.main
+
+      # 一部の記事で失敗しても、投稿済みの記事の既読情報は保存する（二重投稿を防ぐ）
+      - name: Commit state changes
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- state.json)" ]; then
+            echo "state.json に変更なし"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git commit -m "chore(articles-state): update seen articles"
+          # notify ワークフローも同じリポジトリへ push するため、先を越されたら取り込み直して再試行
+          for attempt in 1 2 3; do
+            git pull --rebase --quiet
+            if git push --quiet; then
+              exit 0
+            fi
+            echo "push に失敗 (attempt ${attempt})。取り込み直して再試行"
+            sleep $((attempt * 5))
+          done
+          echo "push に 3 回失敗した"
+          exit 1

@@ -35,7 +35,7 @@ jobs:
           persist-credentials: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
           cache-dependency-glob: "claude-code-release-notifier/uv.lock"
@@ -54,7 +54,9 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: uv run python -m notifier.main
 
+      # 複数リリースのうち途中で失敗しても、配信済みリリースの state は保存する（二重投稿を防ぐ）
       - name: Commit state changes
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           if git diff --quiet -- state.json; then
@@ -66,4 +68,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state.json
           git commit -m "chore(state): update last_release_id to ${tag}"
-          git push
+          # articles ワークフローも同じリポジトリへ push するため、先を越されたら取り込み直して再試行
+          for attempt in 1 2 3; do
+            git pull --rebase --quiet
+            if git push --quiet; then
+              exit 0
+            fi
+            echo "push に失敗 (attempt ${attempt})。取り込み直して再試行"
+            sleep $((attempt * 5))
+          done
+          echo "push に 3 回失敗した"
+          exit 1
