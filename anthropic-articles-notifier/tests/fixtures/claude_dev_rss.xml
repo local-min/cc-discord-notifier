@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>claude.dev Blog</title>
+<link>https://claude.dev/</link>
+<description>Sample feed for tests</description>
+<item>
+<title>Newest post about &quot;agents&quot;</title>
+<link>https://claude.dev/blog/newest-post/</link>
+<guid isPermaLink="true">https://claude.dev/blog/newest-post/</guid>
+<pubDate>Tue, 17 Nov 2026 12:00:00 GMT</pubDate>
+<description><![CDATA[<p>An <b>HTML</b> summary &amp; more.</p>]]></description>
+<dc:creator>Jane Doe</dc:creator>
+<category>Engineering</category>
+</item>
+<item>
+<title>Older post</title>
+<link>https://claude.dev/blog/older-post/</link>
+<guid isPermaLink="true">https://claude.dev/blog/older-post/</guid>
+<pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate>
+<description>Plain summary.</description>
+</item>
+<item>
+<title>Item without link is skipped</title>
+<pubDate>Mon, 02 Nov 2026 12:00:00 GMT</pubDate>
+</item>
+</channel>
+</rss>

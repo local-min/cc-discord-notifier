@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://www.anthropic.com/research</loc><lastmod>2026-11-21T00:00:00.000Z</lastmod></url>
+<url><loc>https://www.anthropic.com/research/team/interpretability</loc><lastmod>2026-11-21T00:00:00.000Z</lastmod></url>
+<url><loc>https://www.anthropic.com/research/older-paper</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+<url><loc>https://www.anthropic.com/research/Newer-Paper</loc><lastmod>2026-11-20T18:45:25.849Z</lastmod></url>
+<url><loc>https://www.anthropic.com/research/older-paper/</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+<url><loc>https://www.anthropic.com/news/some-announcement</loc><lastmod>2026-11-21T00:00:00.000Z</lastmod></url>
+<url><loc>https://example.com/research/not-anthropic</loc><lastmod>2026-11-21T00:00:00.000Z</lastmod></url>
+</urlset>
